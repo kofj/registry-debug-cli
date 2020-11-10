@@ -71,7 +71,7 @@ func init() {
 
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.registry-debug-cli.yaml)")
 	rootCmd.PersistentFlags().StringVarP(&endpoint, "endpoint", "e", "ccr.ccs.tencentyun.com", "Distribution endpoint")
-	rootCmd.PersistentFlags().StringVarP(&endpoint, "repository", "r", "kofj/test", "Repository of the artifact")
+	rootCmd.PersistentFlags().StringVarP(&repository, "repository", "r", "kofj/test", "Repository of the artifact")
 	rootCmd.PersistentFlags().StringVarP(&tag, "tag", "t", "", "Tag of the artifact")
 	rootCmd.PersistentFlags().StringVarP(&username, "username", "u", "", "username of the Distribution")
 	rootCmd.PersistentFlags().StringVarP(&password, "password", "p", "", "password of the Distribution")
