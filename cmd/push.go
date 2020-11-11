@@ -3,7 +3,6 @@ package cmd
 import (
 	"bytes"
 	"crypto/sha256"
-	"encoding/json"
 	"fmt"
 	"io"
 	"math/rand"
@@ -11,7 +10,7 @@ import (
 
 	"github.com/docker/distribution"
 	"github.com/docker/distribution/manifest/schema2"
-	"github.com/goharbor/harbor/src/pkg/registry"
+	"github.com/heroku/docker-registry-client/registry"
 	digest "github.com/opencontainers/go-digest"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -59,7 +58,7 @@ func init() {
 
 func dockerPushHandler(cmd *cobra.Command, args []string) {
 	blobSize = viper.GetSizeInBytes("size")
-	if blobSize >= 5*GB || blobSize <= KB {
+	if blobSize > 5*GB || blobSize <= KB {
 		logrus.WithField("current", blobSize).WithField("string", blobSizeString).Error("Blob' size must be between 1KB and 5GB")
 
 		dockerCmd.Help()
@@ -117,19 +116,25 @@ func dockerPushHandler(cmd *cobra.Command, args []string) {
 	var url = fmt.Sprintf("https://%s", endpoint)
 	var blobSize = int64(tempbuf.Len())
 	var blobDigest = digest.NewDigestFromHex("sha256", sha)
-	// var digest String = digest.NewDigestFromHex("sha256", sha)
 
 	logrus.WithField("endpoint", endpoint).
 		WithField("repository", repository).
+		WithField("tag", tagName).
 		WithField("digest", blobDigest).
 		WithField("size", blobSize).
 		WithField("username", username).
-		// WithField("password", password).
 		Warn("Info")
 
-	var client = registry.NewClient(url, username, password, false)
+	hub, err := registry.NewInsecure(url, username, password)
+	if err != nil {
+		logrus.WithError(err).Error("hub failed")
+		return
+	}
+	hub.Logf = func(format string, args ...interface{}) {
+		logrus.Infof(format, args...)
+	}
 
-	pushBlob(repository, "normal blob", blobDigest, blobSize, tempbuf, client)
+	pushBlob(repository, "normal blob", blobDigest, blobSize, tempbuf, hub)
 
 	dockerConfig, err := docker.BuildConfigBytes(blobDigest)
 	if err != nil {
@@ -143,7 +148,7 @@ func dockerPushHandler(cmd *cobra.Command, args []string) {
 	var configDigest = digest.NewDigestFromHex("sha256", fmt.Sprintf("%x", sha256.Sum256(dockerConfig)))
 	var configBuf = bytes.NewBuffer(dockerConfig)
 	var configSize = int64(len(dockerConfig))
-	pushBlob(repository, "docker config blob", configDigest, configSize, configBuf, client)
+	pushBlob(repository, "docker config blob", configDigest, configSize, configBuf, hub)
 
 	var blobsDescriptors = distribution.Descriptor{
 		MediaType: schema2.MediaTypeLayer,
@@ -151,12 +156,9 @@ func dockerPushHandler(cmd *cobra.Command, args []string) {
 		Digest:    blobDigest,
 	}
 	var dockerImageManifest = docker.BuildManifest(configSize, configDigest, blobsDescriptors)
-	dockerImageManifestBytes, err := json.Marshal(dockerImageManifest)
-	if err != nil {
-		logrus.WithError(err).Error("Marshal docker image manifest failed")
-		return
-	}
-	dockerImageDigest, err := client.PushManifest(repository, tagName, schema2.SchemaVersion.MediaType, dockerImageManifestBytes)
+	time.Sleep(3e9)
+	err = hub.PutManifest(repository, tagName, dockerImageManifest)
+	var dockerImageDigest string
 	if err != nil {
 		logrus.WithField("image digest", dockerImageDigest).WithError(err).Error("Push docker image manifest failed")
 		return
@@ -167,10 +169,11 @@ func dockerPushHandler(cmd *cobra.Command, args []string) {
 
 }
 
-func pushBlob(repository, comments string, digest digest.Digest, size int64, buf *bytes.Buffer, client registry.Client) {
+func pushBlob(repository, comments string, digest digest.Digest, size int64, buf *bytes.Buffer, client *registry.Registry) {
 
 	// check
-	exists, err := client.BlobExist(repository, digest.String())
+
+	exists, err := client.HasBlob(repository, digest)
 	if err != nil {
 		logrus.WithError(err).Error("Check blob exist failed")
 		return
@@ -178,11 +181,22 @@ func pushBlob(repository, comments string, digest digest.Digest, size int64, buf
 
 	// push blob
 	if !exists {
-		err = client.PushBlob(repository, digest.String(), size, buf)
+		client.UploadBlob(repository, digest, buf)
 		if err != nil {
-			logrus.WithError(err).Error("Upload blob failed")
+			logrus.WithField("digest", digest).WithError(err).Error("Upload blob failed")
+			return
+		}
+		recheck, err := client.HasBlob(repository, digest)
+		if err != nil {
+			logrus.WithField("digest", digest).WithError(err).Error("Recheck uploaded blob failed")
+		}
+		if recheck {
+			logrus.WithField("digest", digest).Warnln("Recheck uploaded blob success")
+		} else {
+			logrus.WithField("digest", digest).Error("Recheck uploaded blob not exist")
 		}
 	}
+
 	logrus.WithField("blob", digest).WithField("comments", comments).Info("push blob success")
 
 }
