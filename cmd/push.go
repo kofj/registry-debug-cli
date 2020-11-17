@@ -110,10 +110,11 @@ func dockerPushHandler(cmd *cobra.Command, args []string) {
 	logrus.WithField("bytes", n).WithField("digest", sha).Info("blob digest")
 
 	var endpoint = viper.GetString("endpoint")
+	var tls = viper.GetBool("tls")
+	var insecure = viper.GetBool("insecure")
 	var repository = viper.GetString("repository")
 	var username = viper.GetString("username")
 	var password = viper.GetString("password")
-	var url = fmt.Sprintf("https://%s", endpoint)
 	var blobSize = int64(tempbuf.Len())
 	var blobDigest = digest.NewDigestFromHex("sha256", sha)
 
@@ -125,13 +126,10 @@ func dockerPushHandler(cmd *cobra.Command, args []string) {
 		WithField("username", username).
 		Warn("Info")
 
-	hub, err := registry.NewInsecure(url, username, password)
+	hub, err := docker.New(endpoint, username, password, tls, insecure)
 	if err != nil {
 		logrus.WithError(err).Error("hub failed")
 		return
-	}
-	hub.Logf = func(format string, args ...interface{}) {
-		logrus.Infof(format, args...)
 	}
 
 	pushBlob(repository, "normal blob", blobDigest, blobSize, tempbuf, hub)

@@ -38,6 +38,8 @@ var repository string
 var tag string
 var username string
 var password string
+var tls bool
+var insecrue bool
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
@@ -75,6 +77,8 @@ func init() {
 	rootCmd.PersistentFlags().StringVarP(&tag, "tag", "t", "", "Tag of the artifact")
 	rootCmd.PersistentFlags().StringVarP(&username, "username", "u", "", "username of the Distribution")
 	rootCmd.PersistentFlags().StringVarP(&password, "password", "p", "", "password of the Distribution")
+	rootCmd.PersistentFlags().BoolVar(&tls, "tls", true, "Use TLS(https)")
+	rootCmd.PersistentFlags().BoolVarP(&insecrue, "insecrue", "i", false, "Insecure TLS")
 
 	// Bind config
 	viper.BindPFlag("endpoint", rootCmd.PersistentFlags().Lookup("endpoint"))
@@ -82,6 +86,8 @@ func init() {
 	viper.BindPFlag("tag", rootCmd.PersistentFlags().Lookup("tag"))
 	viper.BindPFlag("username", rootCmd.PersistentFlags().Lookup("username"))
 	viper.BindPFlag("password", rootCmd.PersistentFlags().Lookup("password"))
+	viper.BindPFlag("tls", rootCmd.PersistentFlags().Lookup("tls"))
+	viper.BindPFlag("insecrue", rootCmd.PersistentFlags().Lookup("insecrue"))
 
 	// Mark required
 	rootCmd.MarkPersistentFlagRequired("endpoint")
