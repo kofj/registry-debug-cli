@@ -132,6 +132,7 @@ func initializeConfig(cmd *cobra.Command) error {
 	// Works great for simple config names, but needs help for names
 	// like --favorite-color which we fix in the bindFlags function
 	viper.AutomaticEnv()
+	viper.SetEnvPrefix("RDC_")
 
 	// Bind the current command's flags to viper
 	bindFlags(cmd, viper.GetViper())
