@@ -25,6 +25,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 
@@ -65,6 +66,10 @@ func Execute() {
 }
 
 func init() {
+	formatter := &logrus.TextFormatter{
+		FullTimestamp: true,
+	}
+	logrus.SetFormatter(formatter)
 	// cobra.OnInitialize(initConfig)
 
 	// Here you will define your flags and configuration settings.
