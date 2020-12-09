@@ -153,8 +153,13 @@ func dockerPushHandler(cmd *cobra.Command, args []string) {
 		Size:      blobSize,
 		Digest:    blobDigest,
 	}
-	var dockerImageManifest = docker.BuildManifest(configSize, configDigest, blobsDescriptors)
+	dockerImageManifest, err := docker.BuildManifest(configSize, configDigest, blobsDescriptors)
+	if err != nil {
+		logrus.Infof("docker.BuildManifest err  is %v", err)
+	}
+
 	time.Sleep(3e9)
+
 	err = hub.PutManifest(repository, tagName, dockerImageManifest)
 	var dockerImageDigest string
 	if err != nil {
