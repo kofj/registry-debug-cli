@@ -4,7 +4,7 @@ go 1.14
 
 require (
 	github.com/Microsoft/hcsshim v0.8.10 // indirect
-	github.com/Sirupsen/logrus v1.7.0
+	github.com/Sirupsen/logrus v1.7.0 // indirect
 	github.com/containerd/containerd v1.4.1 // indirect
 	github.com/containerd/continuity v0.0.0-20200928162600-f2cc35102c2a // indirect
 	github.com/docker/distribution v2.7.1+incompatible
@@ -27,4 +27,7 @@ require (
 	gotest.tools/v3 v3.0.3 // indirect
 )
 
-replace github.com/Sirupsen/logrus v1.7.0 => github.com/sirupsen/logrus v1.7.0
+replace (
+	github.com/Sirupsen/logrus v1.7.0 => github.com/sirupsen/logrus v1.7.0
+	github.com/sirupsen/logrus v1.7.0 => github.com/Sirupsen/logrus v1.7.0
+)
