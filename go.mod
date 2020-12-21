@@ -25,3 +25,8 @@ require (
 	github.com/vbatts/tar-split v0.11.1 // indirect
 	gotest.tools/v3 v3.0.3 // indirect
 )
+
+replace (
+	github.com/Sirupsen/logrus => github.com/sirupsen/logrus v1.7.0
+	github.com/sirupsen/logrus => github.com/Sirupsen/logrus v1.7.0
+)
