@@ -29,20 +29,19 @@ func BuildConfigBytes(digests ...digest.Digest) ([]byte, error) {
 		},
 	}
 
-	return json.Marshal(cfg)
+	return json.MarshalIndent(cfg, "  ", "  ")
 }
 
 // BuildManifest ...
-func BuildManifest(configSize int64, configDigest digest.Digest, blobsDescriptor ...distribution.Descriptor) (manifest distribution.Manifest) {
-	return schema2.DeserializedManifest{
-		Manifest: schema2.Manifest{
-			Versioned: schema2.SchemaVersion,
-			Config: distribution.Descriptor{
-				MediaType: schema2.MediaTypeImageConfig,
-				Size:      configSize,
-				Digest:    configDigest,
-			},
-			Layers: blobsDescriptor,
+func BuildManifest(configSize int64, configDigest digest.Digest, blobsDescriptors ...distribution.Descriptor) (distribution.Manifest, error) {
+	var manifest = schema2.Manifest{
+		Versioned: schema2.SchemaVersion,
+		Config: distribution.Descriptor{
+			MediaType: schema2.MediaTypeImageConfig,
+			Size:      configSize,
+			Digest:    configDigest,
 		},
+		Layers: blobsDescriptors,
 	}
+	return schema2.FromStruct(manifest)
 }

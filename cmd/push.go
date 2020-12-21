@@ -3,6 +3,7 @@ package cmd
 import (
 	"bytes"
 	"crypto/sha256"
+	"encoding/json"
 	"fmt"
 	"io"
 	"math/rand"
@@ -124,7 +125,7 @@ func dockerPushHandler(cmd *cobra.Command, args []string) {
 		WithField("digest", blobDigest).
 		WithField("size", blobSize).
 		WithField("username", username).
-		Warn("Info")
+		Warn("Base Info")
 
 	hub, err := docker.New(endpoint, username, password, tls, insecure)
 	if err != nil {
@@ -132,7 +133,10 @@ func dockerPushHandler(cmd *cobra.Command, args []string) {
 		return
 	}
 
-	pushBlob(repository, "normal blob", blobDigest, blobSize, tempbuf, hub)
+	err = pushBlob(repository, "normal blob", blobDigest, blobSize, tempbuf, hub)
+	if err != nil {
+		return
+	}
 
 	dockerConfig, err := docker.BuildConfigBytes(blobDigest)
 	if err != nil {
@@ -140,21 +144,33 @@ func dockerPushHandler(cmd *cobra.Command, args []string) {
 		return
 	}
 
-	logrus.WithField("config", string(dockerConfig)).Warn("docker image config")
+	logrus.Warnf("docker image config:\n%s\n", dockerConfig)
 
 	// calc config sha256
 	var configDigest = digest.NewDigestFromHex("sha256", fmt.Sprintf("%x", sha256.Sum256(dockerConfig)))
 	var configBuf = bytes.NewBuffer(dockerConfig)
 	var configSize = int64(len(dockerConfig))
-	pushBlob(repository, "docker config blob", configDigest, configSize, configBuf, hub)
-
-	var blobsDescriptors = distribution.Descriptor{
-		MediaType: schema2.MediaTypeLayer,
-		Size:      blobSize,
-		Digest:    blobDigest,
+	err = pushBlob(repository, "docker config blob", configDigest, configSize, configBuf, hub)
+	if err != nil {
+		return
 	}
-	var dockerImageManifest = docker.BuildManifest(configSize, configDigest, blobsDescriptors)
-	time.Sleep(3e9)
+
+	var blobsDescriptors []distribution.Descriptor = []distribution.Descriptor{
+		{
+			MediaType: schema2.MediaTypeLayer,
+			Size:      blobSize,
+			Digest:    blobDigest,
+		},
+	}
+	dockerImageManifest, err := docker.BuildManifest(configSize, configDigest, blobsDescriptors...)
+	if err != nil {
+		logrus.WithError(err).Errorln("Build manifest failed")
+		return
+	}
+
+	manifestBytes, err := json.MarshalIndent(dockerImageManifest, "  ", "  ")
+	logrus.WithError(err).Warnf("docker image mainfiest:\n%s\n", manifestBytes)
+
 	err = hub.PutManifest(repository, tagName, dockerImageManifest)
 	var dockerImageDigest string
 	if err != nil {
@@ -167,7 +183,7 @@ func dockerPushHandler(cmd *cobra.Command, args []string) {
 
 }
 
-func pushBlob(repository, comments string, digest digest.Digest, size int64, buf *bytes.Buffer, client *registry.Registry) {
+func pushBlob(repository, comments string, digest digest.Digest, size int64, buf *bytes.Buffer, client *registry.Registry) (err error) {
 
 	// check
 
@@ -192,9 +208,10 @@ func pushBlob(repository, comments string, digest digest.Digest, size int64, buf
 			logrus.WithField("digest", digest).Warnln("Recheck uploaded blob success")
 		} else {
 			logrus.WithField("digest", digest).Error("Recheck uploaded blob not exist")
+			return fmt.Errorf("Blob %s not exist", digest)
 		}
 	}
 
 	logrus.WithField("blob", digest).WithField("comments", comments).Info("push blob success")
-
+	return nil
 }
